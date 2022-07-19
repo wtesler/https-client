@@ -46,19 +46,20 @@ module.exports = class HttpsClient {
         }
 
         res.on("data", chunk => data.push(chunk));
-        res.on("error", e => reject(e));
+        res.on("error", e => reject(e)); // Network Error
         res.on("end", () => {
           try {
             const resStr = Buffer.concat(data).toString();
+            let response = resStr;
+            try {
+              response = JSON.parse(resStr);
+            } catch (e) {
+              // Everything is fine.
+            }
+
             if (isError) {
-              reject(new Error(resStr));
+              reject(new Error(response)); // Server Error
             } else {
-              let response = resStr;
-              try {
-                response = JSON.parse(resStr);
-              } catch (e) {
-                // Everything is fine.
-              }
               resolve(response);
             }
           } catch (e) {
