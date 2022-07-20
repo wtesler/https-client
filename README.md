@@ -1,6 +1,9 @@
 ## https-client
 
-Simple async RESTful client for `node.js` `https` module. Useful functionality for `GET/POST/PUT/DELETE` calls.
+Simple async RESTful client for `node.js` `https` module.
+
+Exports `get`, `post`, `put`, `delete` methods.
+
 No dependencies other than `https` module.
 
 Example:
