@@ -1,32 +1,49 @@
 module.exports = class HttpsClient {
-  async call(type, host, path, body = {}, headers = {}) {
+  async get(path, host, body = {}, headers = {}) {
+    const keys = Object.keys(body);
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+
+      if (i === 0) {
+        path += "?";
+      }
+
+      path += `${key}=${body[key]}`;
+
+      if (i < keys.length - 1) {
+        path += "&";
+      }
+    }
+
+    return this._call("GET", path, host, body, headers);
+  }
+
+  async post(path, host, body = {}, headers = {}) {
+    body = JSON.stringify(body);
+    headers["Content-Length"] = body.length;
+
+    return this._call("POST", path, host, body, headers);
+  }
+
+  async put(path, host, body = {}, headers = {}) {
+    body = JSON.stringify(body);
+    headers["Content-Length"] = body.length;
+
+    return this._call("PUT", path, host, body, headers);
+  }
+
+  async delete(path, host, body = {}, headers = {}) {
+    body = JSON.stringify(body);
+    headers["Content-Length"] = body.length;
+
+    return this._call("DELETE", path, host, body, headers);
+  }
+
+  async _call(type, path, host, body = {}, headers = {}) {
     const https = require("https");
 
     if (!headers["Content-Type"]) {
       headers["Content-Type"] = "application/json"; // Common situation handled here.
-    }
-
-    if (type === "GET") {
-      // Turn body into query parameters.
-      const keys = Object.keys(body);
-      for (let i = 0; i < keys.length; i++) {
-        const key = keys[i];
-
-        if (i === 0) {
-          path += "?";
-        }
-
-        path += `${key}=${body[key]}`;
-
-        if (i < keys.length - 1) {
-          path += "&";
-        }
-      }
-    } else if (type === "POST" || type === "PUT" || type === "DELETE") {
-      body = JSON.stringify(body);
-      headers["Content-Length"] = body.length;
-    } else {
-      throw new Error(`Unrecognized type: ${type}`);
     }
 
     const options = {
