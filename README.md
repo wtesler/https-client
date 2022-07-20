@@ -1,5 +1,7 @@
 ## https-client
 
+[![NPM version][npm-image]][npm-url]
+
 Simple async RESTful client for `node.js` `https` module.
 
 Exports `get`, `post`, `put`, `delete` methods.
