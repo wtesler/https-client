@@ -68,13 +68,15 @@ module.exports = class HttpsClient {
             let response = resStr;
             try {
               response = JSON.parse(resStr);
-              response.statusCode = statusCode;
+              if (!response.statusCode) {
+                response.statusCode = statusCode;
+              }
             } catch (e) {
               // Everything is fine.
             }
 
             if (statusCode >= 400) {
-              reject(new Error(response)); // Server Error
+              reject(response); // Server Error
             } else {
               resolve(response);
             }

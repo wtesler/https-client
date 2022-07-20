@@ -1,6 +1,6 @@
 {
   "name": "https-client",
-  "version": "1.0.4",
+  "version": "1.0.6",
   "description": "Simple async RESTful client for node.js https module. Simple interface for GET/POST/PUT/DELETE calls.",
   "author": "Will Tesler",
   "main": "src/index.js",
