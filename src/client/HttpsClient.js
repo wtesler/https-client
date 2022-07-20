@@ -30,7 +30,7 @@ module.exports = class HttpsClient {
     body = JSON.stringify(body);
     headers['Content-Length'] = body.length;
 
-    return this._call('POST', path, host, body, headers, options);
+    return HttpsClient._call('POST', path, host, body, headers, options);
   }
 
   /**
@@ -60,13 +60,16 @@ module.exports = class HttpsClient {
    * @param host Host to call. Example: api.example.com
    * @param body Optional POJO (i.e. {}) to send. Works for all methods including `get`.
    * @param headers Optional POJO (i.e. {}) to send. May contain things like API Key, etc.
-   * @param options Optional properties: `response`, `deadline`, `retry`. Defaults to `{10000, 60000, 0}`.
+   * @param options Optional properties POJO (i.e. {}):
+   * `response`: Number of ms to wait for the initial response. Defaults to 10000.
+   * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
+   * `retry`: Number of times to retry the request. Defaults to 0.
+   * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    * @return {Promise<Object>} The resolved or rejected response.
    * Is often times a POJO. When it's a POJO, it has a statusCode property.
    * Can also just be arbitrary data.
-   * @private
    */
-  async _call(type, path, host, body = {}, headers = {}, options = {}) {
+  static async _call(type, path, host, body = {}, headers = {}, options = {}) {
     const https = require('https');
 
     if (host && host.startsWith('https://')) {
@@ -77,17 +80,17 @@ module.exports = class HttpsClient {
       options = {};
     }
 
-    if (!options.response) {
-      options.response = 10000;
-    }
+    const setOptionIfNotSet = (key, value) => {
+      if (options[key] === undefined) {
+        options[key] = value;
+      }
+      return options[key];
+    };
 
-    if (!options.deadline) {
-      options.deadline = 60000;
-    }
-
-    if (!options.retry) {
-      options.retry = 0;
-    }
+    const responseTimeMs = setOptionIfNotSet('response', 10000);
+    const deadlineTimeMs = setOptionIfNotSet('deadline', 60000);
+    const retry = setOptionIfNotSet('retry', 0);
+    const verbose = setOptionIfNotSet('verbose', true);
 
     if (!headers['Content-Type']) {
       headers['Content-Type'] = 'application/json'; // Common situation handled here.
@@ -100,38 +103,134 @@ module.exports = class HttpsClient {
       headers: headers
     };
 
-    return new Promise((resolve, reject) => {
-      const data = [];
 
-      const req = https.request(httpsOptions, res => {
-        res.on('error', e => reject(e)); // Network Error
-        res.on('data', chunk => data.push(chunk));
-        res.on('end', () => {
+    const logWarning = (str) => {
+      if (verbose) {
+        console.warn(str);
+      }
+    };
+
+    let receivedAck = false;
+    let receivedResponse = false;
+
+    let responseTimeout;
+    let deadlineTimeout;
+
+    const TIMEOUT = 'Https Client Timeout';
+
+    const responseTimeoutPromise = new Promise((resolve, reject) => {
+      responseTimeout = setTimeout(() => {
+        if (receivedAck) {
+          reject(new Error('Timeout expired'));
+        } else {
+          resolve(`${TIMEOUT} -> Response passed ${responseTimeMs} ms`);
+        }
+      }, responseTimeMs);
+    });
+
+    const cancelResponseTimeout = () => {
+      receivedAck = true;
+      if (responseTimeout) {
+        clearTimeout(responseTimeout);
+      }
+      responseTimeout = null;
+    };
+
+    const deadlineTimeoutPromise = new Promise(resolve => {
+      deadlineTimeout = setTimeout(() => {
+        resolve(`${TIMEOUT} -> Deadline passed ${deadlineTimeMs} ms`);
+      }, deadlineTimeMs);
+    });
+
+    let hasTried = false;
+    let shouldTry = true;
+
+    let numRetries = 0;
+
+    while (shouldTry && (!hasTried || numRetries < retry)) {
+      hasTried = true;
+
+      receivedAck = false;
+
+      const buffer = Buffer;
+
+      const responsePromise = new Promise((resolve, reject) => {
+        const data = [];
+
+        const req = https.request(httpsOptions, res => {
           const statusCode = res.statusCode;
-          const responseStr = Buffer.concat(data).toString();
-          let response = responseStr;
-          try {
-            response = JSON.parse(responseStr);
-            if (!response.statusCode) {
-              response.statusCode = statusCode;
-            }
-          } catch (e) {
-            // Everything is fine. Not dealing with JSON response.
-          }
 
-          if (statusCode >= 400) {
-            reject(response); // Server Error
-          } else {
-            resolve(response);
-          }
+          res.on('error', e => {
+            cancelResponseTimeout();
+            e.statusCode = statusCode;
+            logWarning(e);
+            resolve(e); // Network Error
+          });
+          res.on('data', chunk => {
+            cancelResponseTimeout();
+            data.push(chunk);
+          });
+          res.on('end', () => {
+            cancelResponseTimeout();
+            clearTimeout(deadlineTimeout);
+
+            const responseStr = buffer.concat(data).toString();
+            let response = responseStr;
+            try {
+              response = JSON.parse(responseStr);
+              if (!response.statusCode) {
+                response.statusCode = statusCode;
+              }
+            } catch (e) {
+              // Everything is fine. Not dealing with JSON response.
+            }
+
+            if (receivedResponse) {
+              resolve();
+              return;
+            }
+
+            if (statusCode >= 400) {
+              logWarning(response);
+              let responseStr = response;
+              try {
+                responseStr = JSON.stringify(response);
+              } catch (e) {
+                // Everything is fine. Not dealing with JSON response.
+              }
+              const serverError = new Error(`Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`)
+              serverError.statusCode = statusCode;
+              resolve(serverError);
+            } else {
+              shouldTry = false;
+              resolve(response);
+            }
+          });
         });
+
+        if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
+          req.write(body);
+        }
+
+        req.end();
       });
 
-      if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
-        req.write(body);
+      const overallResponse = await Promise.race([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
+      receivedResponse = true;
+      if (typeof overallResponse === 'string' && overallResponse.includes(TIMEOUT)) {
+        shouldTry = false;
+        const timeoutError = new Error(overallResponse);
+        timeoutError.statusCode = 408;
+        throw timeoutError;
+      } else if (overallResponse instanceof Error) {
+        if (numRetries === retry) {
+          throw overallResponse;
+        }
+      } else {
+        return overallResponse;
       }
 
-      req.end();
-    });
+      numRetries++;
+    }
   }
 };
