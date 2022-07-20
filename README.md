@@ -12,7 +12,7 @@ Example:
 const { post } = require('https-client');
 const body = {};
 const headers = {};
-const response = await post('/v1/endpoint', 'https://my-host.com', body, headers);
+const response = await post('/v1/endpoint', 'my-host.com', body, headers);
 ```
 
 `get` also takes a `body` and converts it into query parameters for you.
