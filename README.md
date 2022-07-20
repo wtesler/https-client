@@ -1,6 +1,7 @@
 ## https-client
 
-[![npm version](https://img.shields.io/npm/v/npm.svg)](https://www.npmjs.com/package/https-client)
+
+[![npm version](https://img.shields.io/npm/v/https-client)](https://www.npmjs.com/package/https-client)
 
 Simple async RESTful client for `node.js` `https` module.
 
