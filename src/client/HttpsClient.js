@@ -80,17 +80,20 @@ module.exports = class HttpsClient {
       options = {};
     }
 
-    const setOptionIfNotSet = (key, value) => {
-      if (options[key] === undefined) {
-        options[key] = value;
-      }
-      return options[key];
-    };
+    const defaultOptions = {
+      response: 10000,
+      deadline: 60000,
+      retry: 0,
+      verbose: true,
+    }
 
-    const responseTimeMs = setOptionIfNotSet('response', 10000);
-    const deadlineTimeMs = setOptionIfNotSet('deadline', 60000);
-    const retry = setOptionIfNotSet('retry', 0);
-    const verbose = setOptionIfNotSet('verbose', true);
+    // Project options onto default options.
+    options = Object.assign(defaultOptions, options);
+
+    const responseTimeMs = options.response;
+    const deadlineTimeMs = options.deadline;
+    const retry = options.retry;
+    const verbose = options.verbose;
 
     if (!headers['Content-Type']) {
       headers['Content-Type'] = 'application/json'; // Common situation handled here.
@@ -111,18 +114,22 @@ module.exports = class HttpsClient {
     };
 
     let receivedAck = false;
-    let receivedResponse = false;
+    let didTimeout = false;
 
     let responseTimeout;
     let deadlineTimeout;
 
     const TIMEOUT = 'Https Client Timeout';
 
+    /**
+     * Resolves if timeout occurs while waiting for initial acknowledgement.
+     */
     const responseTimeoutPromise = new Promise((resolve, reject) => {
       responseTimeout = setTimeout(() => {
         if (receivedAck) {
           reject(new Error('Timeout expired'));
         } else {
+          didTimeout = true;
           resolve(`${TIMEOUT} -> Response passed ${responseTimeMs} ms`);
         }
       }, responseTimeMs);
@@ -136,8 +143,12 @@ module.exports = class HttpsClient {
       responseTimeout = null;
     };
 
+    /**
+     * Resolves if timeout occurs while waiting for response completion.
+     */
     const deadlineTimeoutPromise = new Promise(resolve => {
       deadlineTimeout = setTimeout(() => {
+        didTimeout = true;
         resolve(`${TIMEOUT} -> Deadline passed ${deadlineTimeMs} ms`);
       }, deadlineTimeMs);
     });
@@ -150,11 +161,9 @@ module.exports = class HttpsClient {
     while (shouldTry && (!hasTried || numRetries < retry)) {
       hasTried = true;
 
-      receivedAck = false;
-
       const buffer = Buffer;
 
-      const responsePromise = new Promise((resolve, reject) => {
+      const responsePromise = new Promise(resolve => {
         const data = [];
 
         const req = https.request(httpsOptions, res => {
@@ -171,37 +180,38 @@ module.exports = class HttpsClient {
             data.push(chunk);
           });
           res.on('end', () => {
+            if (didTimeout) {
+              resolve();
+              return;
+            }
+
             cancelResponseTimeout();
             clearTimeout(deadlineTimeout);
 
             const responseStr = buffer.concat(data).toString();
-            let response = responseStr;
+            let response;
             try {
               response = JSON.parse(responseStr);
               if (!response.statusCode) {
                 response.statusCode = statusCode;
               }
             } catch (e) {
-              // Everything is fine. Not dealing with JSON response.
-            }
-
-            if (receivedResponse) {
-              resolve();
-              return;
+              response = responseStr;
             }
 
             if (statusCode >= 400) {
               logWarning(response);
               let responseStr = response;
-              try {
-                responseStr = JSON.stringify(response);
-              } catch (e) {
-                // Everything is fine. Not dealing with JSON response.
-              }
-              const serverError = new Error(`Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`)
+              const serverError = new Error();
               serverError.statusCode = statusCode;
+              if (typeof response === 'string') {
+                serverError.message = `Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`;
+              } else {
+                Object.assign(serverError, response);
+              }
               resolve(serverError);
             } else {
+              // Success
               shouldTry = false;
               resolve(response);
             }
@@ -215,8 +225,8 @@ module.exports = class HttpsClient {
         req.end();
       });
 
-      const overallResponse = await Promise.race([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
-      receivedResponse = true;
+      const overallResponse = await Promise.any([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
+
       if (typeof overallResponse === 'string' && overallResponse.includes(TIMEOUT)) {
         shouldTry = false;
         const timeoutError = new Error(overallResponse);
