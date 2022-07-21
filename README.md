@@ -28,6 +28,6 @@ Status code `>= 400` will cause a rejection of the call.
     retry: number of retries, default 0
     response: response timeout in ms, default 10000
     deadline: deadline timeout in ms, default 60000
-    verbose: should log warnings, default false
+    verbose: should log warnings, default true
 
 All options are optional.
