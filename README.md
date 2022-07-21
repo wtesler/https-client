@@ -3,25 +3,29 @@
 
 [![npm version](https://img.shields.io/npm/v/https-client)](https://www.npmjs.com/package/https-client)
 
-Simple RESTful client for `node.js` `https` module.
+Simple REST client for `node.js` `https` module.
 
-Use exported `get`, `post`, `put`, `delete` methods.
+Adds retries and timeout support to `https` module.
+
+Adds default `JSON` support to the body and response.
+
+Query parameters parsed from body.
+
+Status code `>= 400` will cause a rejection of the call.
+
+Has a single exported method `request`.
 
 No dependencies other than `https` module.
 
 ### Example:
 
 ```
-const { post } = require('https-client');
+const { request } = require('https-client');
 const body = {};
 const headers = {};
 const options = {};
-const response = await post('/v1/endpoint', 'my-host.com', body, headers, options);
+const response = await request('POST', '/v1/endpoint', 'my-host.com', body, headers, options);
 ```
-
-`get` also takes a `body` and converts it into query parameters for you.
-
-Status code `>= 400` will cause a rejection of the call.
 
 ### Options:
 
