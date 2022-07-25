@@ -5,6 +5,8 @@
 
 Simple REST client for `node.js` `https` module.
 
+Has a single default export `request`.
+
 Adds retries and timeout support to `https` module.
 
 Adds default `JSON` support to the body and response.
@@ -12,8 +14,6 @@ Adds default `JSON` support to the body and response.
 Query parameters parsed from body.
 
 Status code `>= 400` will cause a rejection of the call.
-
-Has a single exported method `request`.
 
 No dependencies other than `https` module.
 
