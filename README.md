@@ -20,7 +20,7 @@ No dependencies other than `https` module.
 ### Example:
 
 ```
-const { request } = require('https-client');
+const request = require('https-client');
 const body = {};
 const headers = {};
 const options = {};
