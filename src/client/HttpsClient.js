@@ -101,7 +101,7 @@ module.exports = class HttpsClient {
     };
 
     if (abortSignal) {
-      httpsOptions.signal = abortSignal;
+      httpsOptions.signal = {abortSignal};
     }
 
     const logWarning = (str) => {
