@@ -2,22 +2,23 @@ module.exports = class HttpsClient {
   /**
    * Make a network request to the given host.
    *
-   * @param type REST method to use. For example 'GET', 'POST', 'PUT', 'DELETE'.
-   * @param path Endpoint path. For example '/api/v1/users'.
-   * @param host Host to call. Example: api.example.com
-   * @param body Optional object or data to send. Works for all methods including `GET`.
-   * @param headers Optional object to send. May contain things like API Key, etc.
-   * @param options Optional properties object. Used mainly for retries and timeouts:
+   * @param type {String} REST method to use. For example 'GET', 'POST', 'PUT', 'DELETE'.
+   * @param path {String} Endpoint path. For example '/api/v1/users'.
+   * @param host {String} Host to call. Example: api.example.com
+   * @param body {any} Optional object or data to send. Works for all methods including `GET`.
+   * @param headers {any} Optional object to send. May contain things like API Key, etc.
+   * @param options {any} Optional properties object. Used mainly for retries and timeouts:
    * `response`: Number of ms to wait for the initial response. Defaults to 10000.
    * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
    * `retry`: Number of times to retry the request. Defaults to 0.
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
+   * @param onChunk {function(String)} An optional function which receives callbacks with chunks as they stream in.
    * @return {Promise<Object>} The resolved or rejected response.
    * If `ACCEPT` is application/json, the response will be parsed as JSON and a status code assigned to it.
    * Otherwise, a response object is created and the response is set to the `data` property.
    */
-  static async request(type, path, host, body = {}, headers = {}, options = {}) {
+  static async request(type, path, host, body = {}, headers = {}, options = {}, onChunk = null) {
     const https = require('https');
 
     type = type.toUpperCase();
@@ -39,15 +40,16 @@ module.exports = class HttpsClient {
     }
 
     const defaultOptions = {
+      retry: 0,
       response: 10000,
       deadline: 60000,
-      retry: 0,
       verbose: true,
     }
 
-    // Project options onto default options.
+    // Options projected onto default options.
     options = Object.assign(defaultOptions, options);
 
+    // Extract options.
     const responseTimeMs = options.response;
     const deadlineTimeMs = options.deadline;
     const retry = options.retry;
@@ -168,6 +170,9 @@ module.exports = class HttpsClient {
           res.on('data', chunk => {
             cancelResponseTimeout();
             data.push(chunk);
+            if (onChunk) {
+              onChunk(chunk)
+            }
           });
           res.on('end', () => {
             if (didTimeout) {
@@ -227,18 +232,22 @@ module.exports = class HttpsClient {
       const overallResponse = await Promise.any([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
 
       if (typeof overallResponse === 'string' && overallResponse.includes(TIMEOUT)) {
+        // Timeout occurred.
         shouldTry = false;
         const timeoutError = new Error(overallResponse);
         timeoutError.statusCode = 408;
         throw timeoutError;
       } else if (overallResponse instanceof Error) {
         if (numRetries === retry) {
+          // No more retries. We throw the response.
           throw overallResponse;
         }
       } else {
+        // Response was good. Return it.
         return overallResponse;
       }
 
+      // Response was error. Trying again.
       numRetries++;
     }
   }
