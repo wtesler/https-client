@@ -230,11 +230,10 @@ module.exports = class HttpsClient {
 
         if (abortSignal) {
           abortSignal.addEventListener('abort', () => {
-            try {
-              req.destroy(new Error("Aborted"))
-            } catch (e) {
-              resolve(e)
-            }
+            req.destroy()
+            const error = new Error('Aborted');
+            error.statusCode = 499
+            resolve(error)
           });
         }
 
