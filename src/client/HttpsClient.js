@@ -14,6 +14,7 @@ module.exports = class HttpsClient {
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
    * @param onChunk {function(String)} An optional function which receives callbacks with chunks as they stream in.
+   * If set, the overall response will not contain the data.
    * @return {Promise<Object>} The resolved or rejected response.
    * If `ACCEPT` is application/json, the response will be parsed as JSON and a status code assigned to it.
    * Otherwise, a response object is created and the response is set to the `data` property.
@@ -169,9 +170,10 @@ module.exports = class HttpsClient {
           });
           res.on('data', chunk => {
             cancelResponseTimeout();
-            data.push(chunk);
             if (onChunk) {
               onChunk(chunk)
+            } else {
+              data.push(chunk);
             }
           });
           res.on('end', () => {
