@@ -13,13 +13,14 @@ module.exports = class HttpsClient {
    * `retry`: Number of times to retry the request. Defaults to 0.
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
+   * @param abortSignal {AbortSignal} An optional abort signal which can be used to cancel the request.
    * @param onChunk {function(String)} An optional function which receives callbacks with chunks as they stream in.
    * If set, the overall response will not contain the data.
    * @return {Promise<Object>} The resolved or rejected response.
    * If `ACCEPT` is application/json, the response will be parsed as JSON and a status code assigned to it.
    * Otherwise, a response object is created and the response is set to the `data` property.
    */
-  static async request(type, path, host, body = {}, headers = {}, options = {}, onChunk = null) {
+  static async request(type, path, host, body = {}, headers = {}, options = {}, abortSignal = null, onChunk = null) {
     const https = require('https');
 
     type = type.toUpperCase();
@@ -44,8 +45,8 @@ module.exports = class HttpsClient {
       retry: 0,
       response: 10000,
       deadline: 60000,
-      verbose: true,
-    }
+      verbose: true
+    };
 
     // Options projected onto default options.
     options = Object.assign(defaultOptions, options);
@@ -99,6 +100,9 @@ module.exports = class HttpsClient {
       headers: headers
     };
 
+    if (abortSignal) {
+      httpsOptions.signal = abortSignal;
+    }
 
     const logWarning = (str) => {
       if (verbose) {
@@ -171,7 +175,7 @@ module.exports = class HttpsClient {
           res.on('data', chunk => {
             cancelResponseTimeout();
             if (onChunk) {
-              onChunk(chunk)
+              onChunk(chunk);
             } else {
               data.push(chunk);
             }
@@ -202,7 +206,7 @@ module.exports = class HttpsClient {
               response = {
                 data: responseStr,
                 statusCode: statusCode
-              }
+              };
             }
 
             if (statusCode >= 400) {
