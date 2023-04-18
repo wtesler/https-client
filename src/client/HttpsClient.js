@@ -100,10 +100,6 @@ module.exports = class HttpsClient {
       headers: headers
     };
 
-    if (abortSignal) {
-      httpsOptions.signal = abortSignal;
-    }
-
     const logWarning = (str) => {
       if (verbose) {
         console.warn(str);
@@ -231,6 +227,12 @@ module.exports = class HttpsClient {
             }
           });
         });
+
+        if (abortSignal) {
+          abortSignal.addEventListener('abort', () => {
+            req.destroy(new Error("Aborted"))
+          });
+        }
 
         if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
           req.write(body);

@@ -1,6 +1,6 @@
 {
   "name": "https-client",
-  "version": "1.2.6",
+  "version": "1.2.7",
   "description": "Simple REST client for `node.js` `https` module. Adds retries and timeout support to `https` module.",
   "author": "Will Tesler",
   "main": "src/index.js",
