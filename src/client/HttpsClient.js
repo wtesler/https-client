@@ -175,7 +175,11 @@ module.exports = class HttpsClient {
           res.on('data', chunk => {
             cancelResponseTimeout();
             if (onChunk) {
-              onChunk(chunk);
+              try {
+                onChunk(chunk);
+              } catch (e) {
+                resolve(e);
+              }
             } else {
               data.push(chunk);
             }
