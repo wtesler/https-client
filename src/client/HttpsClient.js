@@ -7,14 +7,14 @@ module.exports = class HttpsClient {
    * @param host {String} Host to call. Example: api.example.com
    * @param body {any} Optional object or data to send. Works for all methods including `GET`.
    * @param headers {any} Optional object to send. May contain things like API Key, etc.
-   * @param options {any} Optional properties object. Used mainly for retries and timeouts:
+   * @param options {any} Optional properties object, may contain the following fields:
    * `response`: Number of ms to wait for the initial response. Defaults to 10000.
    * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
    * `retry`: Number of times to retry the request. Defaults to 0.
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
-   * @param abortSignal {AbortSignal} An optional abort signal which can be used to cancel the request.
-   * @param onChunk {function(String)} An optional function which receives callbacks with chunks as they stream in.
+   * @param abortSignal {AbortSignal} An optional abort signal which can be used to interrupt the request.
+   * @param onChunk {function(Buffer)} An optional function which receives callbacks with chunks as they stream in.
    * If set, the overall response will not contain the data.
    * @return {Promise<Object>} The resolved or rejected response.
    * If `ACCEPT` is application/json, the response will be parsed as JSON and a status code assigned to it.
@@ -99,6 +99,10 @@ module.exports = class HttpsClient {
       method: type,
       headers: headers
     };
+
+    if (abortSignal) {
+      httpsOptions.signal = abortSignal;
+    }
 
     const logWarning = (str) => {
       if (verbose) {
@@ -230,11 +234,11 @@ module.exports = class HttpsClient {
 
         if (abortSignal) {
           abortSignal.addEventListener('abort', () => {
-            req.destroy()
+            req.destroy();
             const error = new Error('Aborted');
-            error.statusCode = 499
-            resolve(error)
-          });
+            error.statusCode = 499;
+            resolve(error);
+          }, {once: true});
         }
 
         if (type === 'POST' || type === 'PUT' || type === 'DELETE') {

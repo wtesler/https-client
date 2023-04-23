@@ -24,7 +24,11 @@ const request = require('https-client');
 const body = {};
 const headers = {};
 const options = {};
-const response = await request('POST', '/v1/endpoint', 'my-host.com', body, headers, options);
+
+const abortController = new AbortController();
+const signal = abortController.signal;
+
+const response = await request('POST', '/v1/endpoint', 'my-host.com', body, headers, options, signal);
 ```
 
 ### Options:
@@ -35,3 +39,9 @@ const response = await request('POST', '/v1/endpoint', 'my-host.com', body, head
     verbose: should log warnings, default true
 
 All options are optional.
+
+### onChunk
+
+`request` has an optional `onChunk` parameter which is a function that receives Buffers as chunks
+while the request is underway. If passed in, the overall response will be empty and you can
+reconstruct the response manually from the chunks. Can be used for response streaming.
