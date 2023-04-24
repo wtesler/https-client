@@ -178,6 +178,7 @@ module.exports = class HttpsClient {
               try {
                 onChunk(chunk);
               } catch (e) {
+                logWarning(e);
                 resolve(e);
               }
             } else {
