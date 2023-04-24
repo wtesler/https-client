@@ -66,8 +66,9 @@ module.exports = class HttpsClient {
     }
 
     if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
-      if (headers['Content-Type'] === 'application/json') {
+      if (headers['Content-Type'].includes('application/json')) {
         body = JSON.stringify(body);
+        body = Buffer.from(body, 'utf-8');
       }
 
       if (!headers['Content-Length']) {
@@ -127,7 +128,7 @@ module.exports = class HttpsClient {
           reject(new Error('Timeout expired'));
         } else {
           didTimeout = true;
-          resolve(`${TIMEOUT} -> Response passed ${responseTimeMs} ms`);
+          resolve(`${TIMEOUT}. Response passed ${responseTimeMs} ms`);
         }
       }, responseTimeMs);
     });
@@ -146,7 +147,7 @@ module.exports = class HttpsClient {
     const deadlineTimeoutPromise = new Promise(resolve => {
       deadlineTimeout = setTimeout(() => {
         didTimeout = true;
-        resolve(`${TIMEOUT} -> Deadline passed ${deadlineTimeMs} ms`);
+        resolve(`${TIMEOUT}. Deadline passed ${deadlineTimeMs} ms`);
       }, deadlineTimeMs);
     });
 
