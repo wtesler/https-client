@@ -8,6 +8,7 @@ module.exports = class HttpsClient {
    * @param body {any} Optional object or data to send. Works for all methods including `GET`.
    * @param headers {any} Optional object to send. May contain things like API Key, etc.
    * @param options {any} Optional properties object, may contain the following fields:
+   * `port`: Request on a port other than 443.
    * `response`: Number of ms to wait for the initial response. Defaults to 10000.
    * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
    * `retry`: Number of times to retry the request. Defaults to 0.
@@ -42,9 +43,9 @@ module.exports = class HttpsClient {
     }
 
     const defaultOptions = {
-      retry: 0,
       response: 10000,
       deadline: 60000,
+      retry: 0,
       verbose: true
     };
 
@@ -52,6 +53,7 @@ module.exports = class HttpsClient {
     options = Object.assign(defaultOptions, options);
 
     // Extract options.
+    const port = options.port;
     const responseTimeMs = options.response;
     const deadlineTimeMs = options.deadline;
     const retry = options.retry;
@@ -101,8 +103,16 @@ module.exports = class HttpsClient {
       headers: headers
     };
 
+    if (port) {
+      httpsOptions.port = port;
+    }
+
     if (abortSignal) {
       httpsOptions.signal = abortSignal;
+    }
+
+    if (process.env.NODE_ENV === 'development') {
+      httpsOptions.rejectUnauthorized = false;
     }
 
     const logWarning = (str) => {

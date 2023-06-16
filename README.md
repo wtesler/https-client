@@ -33,6 +33,7 @@ const response = await request('POST', '/v1/endpoint', 'my-host.com', body, head
 
 ### Options:
 
+    port: The port, default 443
     retry: number of retries, default 0
     response: response timeout in ms, default 10000
     deadline: deadline timeout in ms, default 60000
