@@ -166,7 +166,7 @@ module.exports = class HttpsClient {
 
     let numRetries = 0;
 
-    while (shouldTry && (!hasTried || numRetries < retry)) {
+    while (shouldTry && (!hasTried || numRetries <= retry)) {
       hasTried = true;
 
       const buffer = Buffer;
