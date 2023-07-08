@@ -228,7 +228,7 @@ module.exports = class HttpsClient {
             if (statusCode >= 400) {
               logWarning(response);
               let responseStr = response;
-              const serverError = new Error();
+              const serverError = new Error(`Received not OK status code with call to ${host}${path}`);
               serverError.statusCode = statusCode;
               if (typeof response === 'string') {
                 serverError.message = `Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`;
