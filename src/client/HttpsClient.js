@@ -271,7 +271,9 @@ module.exports = class HttpsClient {
       } else if (overallResponse instanceof Error) {
         if (numRetries === retry) {
           // No more retries. We throw the response.
-          throw overallResponse;
+          const overallError = new Error(overallResponse.message);
+          Object.assign(overallError, overallResponse);
+          throw overallError;
         }
       } else {
         // Response was good. Return it.
