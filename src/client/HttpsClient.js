@@ -262,25 +262,27 @@ module.exports = class HttpsClient {
 
       const overallResponse = await Promise.any([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
 
-      if (typeof overallResponse === 'string' && overallResponse.includes(TIMEOUT)) {
-        // Timeout occurred.
-        shouldTry = false;
-        const timeoutError = new Error(overallResponse);
-        timeoutError.statusCode = 408;
-        throw timeoutError;
-      } else if (overallResponse instanceof Error) {
+      const isTimeout = typeof overallResponse === 'string' && overallResponse.includes(TIMEOUT);
+      const isError = overallResponse instanceof Error;
+
+      if (isTimeout || isError) {
         if (numRetries === retry) {
-          // No more retries. We throw the response.
-          const overallError = new Error(overallResponse.message);
-          Object.assign(overallError, overallResponse);
-          throw overallError;
+          if (isTimeout) {
+            const timeoutError = new Error(overallResponse);
+            timeoutError.statusCode = 408;
+            throw timeoutError;
+          } else {
+            const overallError = new Error(overallResponse.message);
+            Object.assign(overallError, overallResponse);
+            throw overallError;
+          }
         }
       } else {
         // Response was good. Return it.
         return overallResponse;
       }
 
-      // Response was error. Trying again.
+      // Response was error or timeout. Trying again.
       numRetries++;
     }
   }
