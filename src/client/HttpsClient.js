@@ -121,53 +121,53 @@ module.exports = class HttpsClient {
       }
     };
 
-    let receivedAck = false;
-    let didTimeout = false;
-
-    let responseTimeout;
-    let deadlineTimeout;
-
-    const TIMEOUT = 'Https Client Timeout';
-
-    /**
-     * Resolves if timeout occurs while waiting for initial acknowledgement.
-     */
-    const responseTimeoutPromise = new Promise((resolve, reject) => {
-      responseTimeout = setTimeout(() => {
-        if (receivedAck) {
-          reject(new Error('Timeout expired'));
-        } else {
-          didTimeout = true;
-          resolve(`${TIMEOUT}. Response passed ${responseTimeMs} ms`);
-        }
-      }, responseTimeMs);
-    });
-
-    const cancelResponseTimeout = () => {
-      receivedAck = true;
-      if (responseTimeout) {
-        clearTimeout(responseTimeout);
-      }
-      responseTimeout = null;
-    };
-
-    /**
-     * Resolves if timeout occurs while waiting for response completion.
-     */
-    const deadlineTimeoutPromise = new Promise(resolve => {
-      deadlineTimeout = setTimeout(() => {
-        didTimeout = true;
-        resolve(`${TIMEOUT}. Deadline passed ${deadlineTimeMs} ms`);
-      }, deadlineTimeMs);
-    });
-
     let hasTried = false;
-    let shouldTry = true;
+    let didSucceed = false;
 
     let numRetries = 0;
 
-    while (shouldTry && (!hasTried || numRetries <= retry)) {
+    while (!didSucceed && (!hasTried || numRetries <= retry)) {
       hasTried = true;
+
+      let receivedAck = false;
+      let didTimeout = false;
+
+      let responseTimeout;
+      let deadlineTimeout;
+
+      const TIMEOUT = 'Https Client Timeout';
+
+      /**
+       * Resolves if timeout occurs while waiting for initial acknowledgement.
+       */
+      const responseTimeoutPromise = new Promise((resolve, reject) => {
+        responseTimeout = setTimeout(() => {
+          if (receivedAck) {
+            reject(new Error('Timeout expired'));
+          } else {
+            didTimeout = true;
+            resolve(`${TIMEOUT}. Response passed ${responseTimeMs} ms`);
+          }
+        }, responseTimeMs);
+      });
+
+      const cancelResponseTimeout = () => {
+        receivedAck = true;
+        if (responseTimeout) {
+          clearTimeout(responseTimeout);
+        }
+        responseTimeout = null;
+      };
+
+      /**
+       * Resolves if timeout occurs while waiting for response completion.
+       */
+      const deadlineTimeoutPromise = new Promise(resolve => {
+        deadlineTimeout = setTimeout(() => {
+          didTimeout = true;
+          resolve(`${TIMEOUT}. Deadline passed ${deadlineTimeMs} ms`);
+        }, deadlineTimeMs);
+      });
 
       const buffer = Buffer;
 
@@ -238,7 +238,7 @@ module.exports = class HttpsClient {
               resolve(serverError);
             } else {
               // Success
-              shouldTry = false;
+              didSucceed = true;
               resolve(response);
             }
           });
