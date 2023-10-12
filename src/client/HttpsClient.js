@@ -276,6 +276,12 @@ module.exports = class HttpsClient {
             Object.assign(overallError, overallResponse);
             throw overallError;
           }
+        } else {
+          if (isTimeout) {
+            logWarning("The network call timed out. Trying again...");
+          } else {
+            logWarning("The network call produced an error. Trying again...");
+          }
         }
       } else {
         // Response was good. Return it.
