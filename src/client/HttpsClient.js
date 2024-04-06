@@ -86,7 +86,7 @@ module.exports = class HttpsClient {
           path += '?';
         }
 
-        path += `${key}=${value}`;
+        path += `${encodeURIComponent(key)}=${encodeURIComponent(value)}`;
 
         if (i < keys.length - 1) {
           path += '&';
