@@ -12,6 +12,7 @@ module.exports = class HttpsClient {
    * `response`: Number of ms to wait for the initial response. Defaults to 10000.
    * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
    * `retry`: Number of times to retry the request. Defaults to 0.
+   * `rejectUnauthorized`: Whether we should reject unauthorized responses. Defaults to true.
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
    * @param abortSignal {AbortSignal} An optional abort signal which can be used to interrupt the request.
@@ -46,6 +47,7 @@ module.exports = class HttpsClient {
       response: 10000,
       deadline: 60000,
       retry: 0,
+      rejectUnauthorized: true,
       verbose: true
     };
 
@@ -57,6 +59,7 @@ module.exports = class HttpsClient {
     const responseTimeMs = options.response;
     const deadlineTimeMs = options.deadline;
     const retry = options.retry;
+    const rejectUnauthorized = options.rejectUnauthorized;
     const verbose = options.verbose;
 
     if (!headers['Content-Type']) {
@@ -111,7 +114,7 @@ module.exports = class HttpsClient {
       httpsOptions.signal = abortSignal;
     }
 
-    if (process.env.NODE_ENV === 'development') {
+    if (process.env.NODE_ENV === 'development' || !rejectUnauthorized) {
       httpsOptions.rejectUnauthorized = false;
     }
 
