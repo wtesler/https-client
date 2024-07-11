@@ -13,6 +13,7 @@ module.exports = class HttpsClient {
    * `deadline`: Number of ms to wait for the entire request. Defaults to 60000.
    * `retry`: Number of times to retry the request. Defaults to 0.
    * `rejectUnauthorized`: Whether we should reject unauthorized responses. Defaults to true.
+   * `useHttp`: Whether we should use http instead of https. Defaults to false.
    * `verbose`: Whether to print the rejections as warnings. Defaults to true.
    *
    * @param abortSignal {AbortSignal} An optional abort signal which can be used to interrupt the request.
@@ -23,14 +24,6 @@ module.exports = class HttpsClient {
    * Otherwise, a response object is created and the response is set to the `data` property.
    */
   static async request(type, path, host, body = {}, headers = {}, options = {}, abortSignal = null, onChunk = null) {
-    const https = require('https');
-
-    type = type.toUpperCase();
-
-    if (host && host.startsWith('https://')) {
-      host = host.replace('https://', '');
-    }
-
     if (!body) {
       body = {};
     }
@@ -48,6 +41,7 @@ module.exports = class HttpsClient {
       deadline: 60000,
       retry: 0,
       rejectUnauthorized: true,
+      useHttp: false,
       verbose: true
     };
 
@@ -61,6 +55,16 @@ module.exports = class HttpsClient {
     const retry = options.retry;
     const rejectUnauthorized = options.rejectUnauthorized;
     const verbose = options.verbose;
+    const useHttp = options.useHttp;
+
+    const httpLib = useHttp ? require('http') : require('https');
+
+    const httpStr = useHttp ? 'http' : 'https';
+    if (host && host.startsWith(`${httpStr}://`)) {
+      host = host.replace(`${httpStr}://`, '');
+    }
+
+    type = type.toUpperCase();
 
     if (!headers['Content-Type']) {
       headers['Content-Type'] = 'application/json'; // Common situation handled here.
@@ -99,7 +103,7 @@ module.exports = class HttpsClient {
       throw new Error(`Unsupported type: ${type}`);
     }
 
-    const httpsOptions = {
+    const requestOptions = {
       hostname: host,
       path: path,
       method: type,
@@ -107,15 +111,15 @@ module.exports = class HttpsClient {
     };
 
     if (port) {
-      httpsOptions.port = port;
+      requestOptions.port = port;
     }
 
     if (abortSignal) {
-      httpsOptions.signal = abortSignal;
+      requestOptions.signal = abortSignal;
     }
 
     if (process.env.NODE_ENV === 'development' || !rejectUnauthorized) {
-      httpsOptions.rejectUnauthorized = false;
+      requestOptions.rejectUnauthorized = false;
     }
 
     const logWarning = (str) => {
@@ -175,7 +179,7 @@ module.exports = class HttpsClient {
       const buffer = Buffer;
 
       const responsePromise = new Promise(resolve => {
-        const req = https.request(httpsOptions, res => {
+        const req = httpLib.request(requestOptions, res => {
           const data = [];
 
           const statusCode = res.statusCode;

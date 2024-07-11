@@ -38,6 +38,7 @@ const response = await request('POST', '/v1/endpoint', 'my-host.com', body, head
     rejectUnauthorized: Whether we should reject unauthorized responses, default true
     response: response timeout in ms, default 10000
     deadline: deadline timeout in ms, default 60000
+    useHttp: Whether we should use http instead of https. Defaults to false.
     verbose: should log warnings, default true
 
 All options are optional.
