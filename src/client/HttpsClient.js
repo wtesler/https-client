@@ -179,99 +179,92 @@ module.exports = class HttpsClient {
       const buffer = Buffer;
 
       const responsePromise = new Promise(resolve => {
-        try {
-          const req = httpLib.request(requestOptions, res => {
-            const data = [];
+        const req = httpLib.request(requestOptions, res => {
+          const data = [];
 
-            const statusCode = res.statusCode;
+          const statusCode = res.statusCode;
 
-            res.on('error', e => {
-              cancelResponseTimeout();
-              e.statusCode = statusCode;
-              logWarning(e);
-              resolve(e); // Network Error
-            });
-            res.on('data', chunk => {
-              cancelResponseTimeout();
-              if (onChunk) {
-                try {
-                  onChunk(chunk);
-                } catch (e) {
-                  logWarning(e);
-                  resolve(e);
-                }
-              } else {
-                data.push(chunk);
-              }
-            });
-            res.on('end', () => {
-              if (didTimeout) {
-                resolve();
-                return;
-              }
-
-              cancelResponseTimeout();
-              clearTimeout(deadlineTimeout);
-
-              const responseStr = buffer.concat(data).toString();
-              let response;
-              if (headers['Accept'] === 'application/json') {
-                try {
-                  response = JSON.parse(responseStr);
-                  if (!response.statusCode) {
-                    response.statusCode = statusCode;
-                  }
-                } catch (e) {
-                  // Everything is fine.
-                }
-              }
-
-              if (!response) {
-                response = {
-                  data: responseStr,
-                  statusCode: statusCode
-                };
-              }
-
-              if (statusCode >= 400) {
-                logWarning(response);
-                let responseStr = response;
-                const serverError = new Error(`Received not OK status code with call to ${host}${path}`);
-                serverError.statusCode = statusCode;
-                if (typeof response === 'string') {
-                  serverError.message = `Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`;
-                } else {
-                  Object.assign(serverError, response);
-                }
-                resolve(serverError);
-              } else {
-                // Success
-                didSucceed = true;
-                resolve(response);
-              }
-            });
+          res.on('error', e => {
+            cancelResponseTimeout();
+            e.statusCode = statusCode;
+            logWarning(e);
+            resolve(e); // Network Error
           });
+          res.on('data', chunk => {
+            cancelResponseTimeout();
+            if (onChunk) {
+              try {
+                onChunk(chunk);
+              } catch (e) {
+                logWarning(e);
+                resolve(e);
+              }
+            } else {
+              data.push(chunk);
+            }
+          });
+          res.on('end', () => {
+            if (didTimeout) {
+              resolve();
+              return;
+            }
 
-          if (abortSignal) {
-            abortSignal.addEventListener('abort', () => {
-              req.destroy();
-              const error = new Error('Aborted');
-              error.statusCode = 499;
-              resolve(error);
-            }, {once: true});
-          }
+            cancelResponseTimeout();
+            clearTimeout(deadlineTimeout);
 
-          if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
-            req.write(body);
-          }
+            const responseStr = buffer.concat(data).toString();
+            let response;
+            if (headers['Accept'] === 'application/json') {
+              try {
+                response = JSON.parse(responseStr);
+                if (!response.statusCode) {
+                  response.statusCode = statusCode;
+                }
+              } catch (e) {
+                // Everything is fine.
+              }
+            }
 
-          req.end();
-        } catch (e) {
-          cancelResponseTimeout();
-          e.statusCode = e.code;
-          logWarning(e);
-          resolve(e); // Network Error
+            if (!response) {
+              response = {
+                data: responseStr,
+                statusCode: statusCode
+              };
+            }
+
+            if (statusCode >= 400) {
+              logWarning(response);
+              let responseStr = response;
+              const serverError = new Error(`Received not OK status code with call to ${host}${path}`);
+              serverError.statusCode = statusCode;
+              if (typeof response === 'string') {
+                serverError.message = `Received ${statusCode} code. Response treated as rejection. Full response: ${responseStr}`;
+              } else {
+                Object.assign(serverError, response);
+              }
+              resolve(serverError);
+            } else {
+              // Success
+              didSucceed = true;
+              resolve(response);
+            }
+          });
+        });
+
+        if (abortSignal) {
+          abortSignal.addEventListener('abort', () => {
+            req.destroy();
+            const error = new Error('Aborted');
+            error.statusCode = 499;
+            resolve(error);
+          }, {once: true});
         }
+
+        if (type === 'POST' || type === 'PUT' || type === 'DELETE') {
+          req.write(body);
+        }
+
+        req.end();
       });
 
       const overallResponse = await Promise.any([responsePromise, Promise.any([responseTimeoutPromise, deadlineTimeoutPromise])]);
