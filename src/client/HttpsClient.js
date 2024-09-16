@@ -251,6 +251,14 @@ module.exports = class HttpsClient {
           });
         });
 
+        req.on('error', (e) => {
+          cancelResponseTimeout();
+          clearTimeout(deadlineTimeout);
+          e.statusCode = e.statusCode ? e.statusCode : 500;
+          logWarning(e);
+          resolve(e); // Network Error
+        });
+
         if (abortSignal) {
           abortSignal.addEventListener('abort', () => {
             req.destroy();
